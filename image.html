@@ -1,0 +1,135 @@
+<meta charset="UTF-8">
+<style>
+label { min-width: 70px; display: inline-block; }
+</style>
+<body>
+  <div>
+    <input type="text" id="url_el" placeholder="enter a url">
+    <br>
+    <label for="width_el">width</label> <input type="range" min="1" max="120" value="40" id="width_el">
+    <span id="width_span"></span>x<span id="height_span"></span>
+    <br>
+    <label for="ratio_el">ratio</label> <input type="range" min="0.0" max="8" value="2" step="0.005" id="ratio_el"><br>
+    <label for="hue_el">hue</label> <input type="range" min="-1" max="1" value="0" step="0.005" id="hue_el"><br>
+    <label for="sat_el">saturation</label> <input type="range" min="-1" max="1" value="0" step="0.005" id="sat_el"><br>
+    <label for="lum_el">luminance</label> <input type="range" min="-1" max="1" value="0" step="0.005" id="lum_el"><br>
+    <label></label>&nbsp;<input type="checkbox" id="invert_el"> <label for="invert_el"  style="padding-top: 7px;">invert</label><br>
+    <label for="palette_el" style="padding-top: 5px;">palette</label>
+    <select id="palette_el">
+      <option default value="colors">all colors</label>
+      <option value="hues">hues only</label>
+      <option value="grays">grayscale</label>
+      <option value="reds">reds</label>
+      <option value="blues">blues</label>
+    </select>
+    <br>
+    <label></label>&nbsp;<input type="checkbox" checked id="nn_el"> <label for="nn_el"  style="padding-top: 7px;">nearest neighbor</label>
+    <br>
+    <br>
+  </div>
+  <div id="image_style"></div>
+  <br>
+  <input type="text" id="text_style">
+</body>
+
+<script src="js/vendor/jquery-2.1.4.min.js"></script>
+<script src="js/photo.js"></script>
+<script src="js/util.js"></script>
+<script src="js/vendor/color.js"></script>
+<script>
+var basehref_partz = window.location.href.split("/")
+basehref_partz.pop()
+var basehref = basehref_partz.join("/")
+var url = 'img/rainwagon.gif'
+var width = parseInt( width_span.innerHTML = width_el.value )
+var ratio = parseFloat( ratio_el.value )
+var nn = $(nn_el).prop('checked')
+var invert = $(invert_el).prop('checked')
+var width_timeout
+
+Photo.set_recolor_fn(function(rgb){
+  if (invert) {
+    rgb[0] = 255 - rgb[0]
+    rgb[1] = 255 - rgb[1]
+    rgb[2] = 255 - rgb[2]
+  }
+  var hsl = rgb2hsl(rgb)
+  hsl[0] = mod(hsl[0] + hue, 1.0)
+  hsl[1] = clamp(hsl[1] + sat, 0.0, 1.0)
+  hsl[2] = clamp(hsl[2] + lum, 0.0, 1.0)
+  return hsl2rgb.apply(this, hsl)
+})
+
+var hue = 0, sat = 0, lum = 0
+listen(hue_el, window, "hue")
+listen(sat_el, window, "sat")
+listen(lum_el, window, "lum")
+
+
+
+Photo.fromUrl(url, toCanvas, { width: width, ratio: ratio, neighbor: nn })
+
+url_el.addEventListener('change', function(){
+  ratio_el.value = ratio = 0
+  // url = "http://198.199.72.134/cors/" + url_el.value
+  url = /* "/cgi-bin/proxy?" + */ url_el.value
+  Photo.fromUrl(url, toCanvas, { width: width, ratio: ratio, neighbor: nn })
+})
+nn_el.addEventListener('change', function(){
+  nn = $(nn_el).prop('checked')
+  Photo.fromUrl(url, toCanvas, { width: width, ratio: ratio, neighbor: nn })
+})
+invert_el.addEventListener('change', function(){
+  invert = $(invert_el).prop('checked')
+  Photo.fromUrl(url, toCanvas, { width: width, ratio: ratio, neighbor: nn })
+})
+palette_el.addEventListener('change', function(){
+  var palette = $(palette_el).val()
+  Photo.set_colors( Photo[palette] )
+  Photo.fromUrl(url, toCanvas, { width: width, ratio: ratio, neighbor: nn })
+})
+ratio_el.addEventListener("input", function(){
+  ratio = parseFloat( ratio_el.value )
+  if (ratio < 0.03) ratio = 0
+  width_span.innerHTML = width
+  height_span.innerHTML = "..."
+  clearTimeout( width_timeout )
+  width_timeout = setTimeout(function(){
+    Photo.fromUrl(url, toCanvas, { width: width, ratio: ratio, neighbor: nn })
+  }, 50)
+})
+width_el.addEventListener("input", function(){
+  width = parseInt( width_el.value )
+  width_span.innerHTML = width
+  height_span.innerHTML = "..."
+  clearTimeout( width_timeout )
+  width_timeout = setTimeout(function(){
+    Photo.fromUrl(url, toCanvas, { width: width, ratio: ratio, neighbor: nn })
+  }, 50)
+})
+function listen (el, obj, val) {
+  el.addEventListener("input", function(){
+    obj[val] = parseFloat( el.value )
+    Photo.fromUrl(url, toCanvas, { width: width, ratio: ratio, neighbor: nn })
+  })
+}
+function toCanvas(rows){
+  var wpx = 6, hpx = 12
+  var canvas = document.createElement("canvas"), ctx = canvas.getContext('2d')
+  var rgb_colors = Photo.colors.map(function(c){ return "rgb(" + c + ")" })
+  canvas.width = rows[0].length * wpx
+  canvas.height = rows.length * hpx
+  rows.forEach(function(row, j){
+    row.forEach(function(lex, i){
+      ctx.fillStyle = rgb_colors[lex]
+      ctx.fillRect(i*wpx,j*hpx,wpx,hpx)
+    })
+  })
+  height_span.innerHTML = rows.length
+  image_style.innerHTML = ""
+  image_style.appendChild(canvas)
+  text_style.value = Photo.ascii(rows)
+}
+
+</script>
+
